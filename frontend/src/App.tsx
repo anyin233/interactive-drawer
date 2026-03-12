@@ -62,6 +62,7 @@ export default function App() {
     messages,
     isStreaming,
     elements,
+    setElements,
     toolStatus,
     setScreenshot,
     sendMessage,
@@ -92,6 +93,7 @@ export default function App() {
           elements={elements}
           isStreaming={isStreaming}
           onScreenshot={setScreenshot}
+          onElementsChange={setElements}
         />
       </DrawingErrorBoundary>
       {showSettings && (

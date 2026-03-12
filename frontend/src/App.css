@@ -16,7 +16,7 @@
 }
 
 /* SVG diagram container — fills the drawing panel with margin */
-.excalidraw-container {
+.svg-preview-container {
   width: 100%;
   height: 100%;
   position: relative;
@@ -114,13 +114,8 @@
   height: 100% !important;
 }
 
-.editor-canvas .excalidraw-container {
-  padding: 0;
-  background: transparent;
-}
-
 /* Fade-in animation for new SVG shape elements (opacity only, no transform) */
-.excalidraw-container svg :where(g, rect, circle, ellipse, text, image) {
+.svg-preview-container svg :where(g, rect, circle, ellipse, text, image) {
   animation: svgFadeIn 0.5s ease-out;
 }
 
@@ -130,7 +125,7 @@
 }
 
 /* Stroke draw-on animation for line elements */
-.excalidraw-container svg :where(path, line, polyline, polygon) {
+.svg-preview-container svg :where(path, line, polyline, polygon) {
   animation: strokeDraw 0.6s ease-out forwards;
 }
 
@@ -145,6 +140,6 @@
 }
 
 /* Smooth transitions for property changes on existing elements */
-.excalidraw-container svg :where(rect, circle, ellipse, path, line, polyline, polygon, text, g) {
+.svg-preview-container svg :where(rect, circle, ellipse, path, line, polyline, polygon, text, g) {
   transition: fill 0.4s ease-out, stroke 0.4s ease-out, opacity 0.4s ease-out;
 }

@@ -4,6 +4,7 @@ import {
   exportToBlob,
   convertToExcalidrawElements,
   restore,
+  CaptureUpdateAction,
 } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import morphdom from "morphdom";
@@ -202,6 +203,7 @@ interface DrawingPanelProps {
   elements: ExcalidrawElement[];
   isStreaming: boolean;
   onScreenshot?: (base64: string) => void;
+  onElementsChange?: (elements: ExcalidrawElement[]) => void;
 }
 
 /**
@@ -215,7 +217,7 @@ interface DrawingPanelProps {
  * @param isStreaming - Whether elements are still being streamed.
  * @param onScreenshot - Callback invoked with base64 PNG after final render.
  */
-export default function DrawingPanel({ elements, isStreaming, onScreenshot }: DrawingPanelProps) {
+export default function DrawingPanel({ elements, isStreaming, onScreenshot, onElementsChange }: DrawingPanelProps) {
   const svgRef = useRef<HTMLDivElement | null>(null);
   const latestCountRef = useRef(0);
   const prevElementsRef = useRef<ExcalidrawElement[]>([]);
@@ -223,6 +225,8 @@ export default function DrawingPanel({ elements, isStreaming, onScreenshot }: Dr
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
+  const [editorSettled, setEditorSettled] = useState(false);
+  const [editorReady, setEditorReady] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const excalidrawApiRef = useRef<any>(null);
   // Store the converted elements for the editor
@@ -473,6 +477,32 @@ export default function DrawingPanel({ elements, isStreaming, onScreenshot }: Dr
     [onScreenshot],
   );
 
+  /**
+   * Read back elements from the Excalidraw editor, update local state,
+   * propagate to parent, and re-render SVG preview + capture screenshot.
+   */
+  const syncEditedElements = useCallback(() => {
+    const api = excalidrawApiRef.current;
+    if (!api) return;
+    const sceneEls = api.getSceneElements() as RawElement[];
+    const live = sceneEls.filter((el: RawElement) => !el.isDeleted);
+    if (live.length === 0) return;
+    convertedElementsRef.current = live;
+    if (onElementsChange) {
+      onElementsChange(live as ExcalidrawElement[]);
+    }
+    renderSvgPreview(live, null);
+    captureScreenshot(live);
+  }, [onElementsChange, renderSvgPreview, captureScreenshot]);
+
+  /**
+   * Exit the editor: sync changes back, then close.
+   */
+  const handleExitEditor = useCallback(() => {
+    syncEditedElements();
+    setIsEditing(false);
+  }, [syncEditedElements]);
+
   // Main render effect — responds to element/streaming changes
   useEffect(() => {
     if (!elements || elements.length === 0) return;
@@ -514,12 +544,13 @@ export default function DrawingPanel({ elements, isStreaming, onScreenshot }: Dr
     prevElementsRef.current = elements;
   }, [elements, isStreaming, renderSvgPreview, captureScreenshot]);
 
-  // Exit edit mode when new streaming starts
+  // Exit edit mode when new streaming starts (sync edits first)
   useEffect(() => {
     if (isStreaming && isEditing) {
+      syncEditedElements();
       setIsEditing(false);
     }
-  }, [isStreaming, isEditing]);
+  }, [isStreaming, isEditing, syncEditedElements]);
 
   // Cleanup screenshot timer on unmount
   useEffect(() => {
@@ -574,29 +605,66 @@ export default function DrawingPanel({ elements, isStreaming, onScreenshot }: Dr
     };
   }, [applyZoom]);
 
-  // Keyboard shortcut: Escape to exit edit mode
+  // Keyboard shortcut: Escape to exit edit mode (with sync)
   useEffect(() => {
     if (!isEditing) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsEditing(false);
+      if (e.key === "Escape") handleExitEditor();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [isEditing]);
+  }, [isEditing, handleExitEditor]);
 
-  // Prepare restored elements for the Excalidraw editor
+  // Prepare elements for the Excalidraw editor (no refreshDimensions —
+  // the settle effect handles that after fonts load)
   const getEditorElements = useCallback(() => {
     const els = convertedElementsRef.current;
     if (els.length === 0) return [];
-    // Use restore to fill in missing defaults for the interactive editor
     const { elements: restored } = restore(
       { elements: els as any },
       null,
       null,
-      { refreshDimensions: true },
     );
     return restored;
   }, []);
+
+  // Settle effect: after Excalidraw API is ready, load fonts, refresh dimensions, then reveal
+  useEffect(() => {
+    if (!isEditing || !editorReady || editorSettled || !excalidrawApiRef.current) return;
+    const api = excalidrawApiRef.current;
+
+    const settle = async () => {
+      try { await document.fonts.load("20px Excalifont"); } catch { /* best-effort */ }
+      await document.fonts.ready;
+
+      const sceneElements = api.getSceneElements();
+      if (sceneElements?.length) {
+        const { elements: fixed } = restore(
+          { elements: sceneElements },
+          null,
+          null,
+          { refreshDimensions: true },
+        );
+        api.updateScene({
+          elements: fixed,
+          captureUpdate: CaptureUpdateAction.NEVER,
+        });
+      }
+      api.scrollToContent();
+      requestAnimationFrame(() => setEditorSettled(true));
+    };
+
+    const timer = setTimeout(settle, 200);
+    return () => clearTimeout(timer);
+  }, [isEditing, editorReady, editorSettled]);
+
+  // Reset editor state when exiting edit mode
+  useEffect(() => {
+    if (!isEditing) {
+      setEditorSettled(false);
+      setEditorReady(false);
+    }
+  }, [isEditing]);
 
   const hasElements = elements && elements.length > 0;
 
@@ -605,7 +673,7 @@ export default function DrawingPanel({ elements, isStreaming, onScreenshot }: Dr
       {/* SVG Preview (always present behind editor) */}
       <div
         ref={svgRef}
-        className="excalidraw-container"
+        className="svg-preview-container"
         style={{
           display: isEditing ? "none" : "flex",
           alignItems: "center",
@@ -638,36 +706,18 @@ export default function DrawingPanel({ elements, isStreaming, onScreenshot }: Dr
           <div className="editor-toolbar">
             <button
               className="edit-button"
-              onClick={() => setIsEditing(false)}
+              onClick={handleExitEditor}
               title="Back to preview (Esc)"
             >
               Done
             </button>
           </div>
-          <div className="editor-canvas">
+          <div className="editor-canvas" style={{ visibility: editorSettled ? "visible" : "hidden" }}>
             <Excalidraw
-              excalidrawAPI={(api: any) => {
-                excalidrawApiRef.current = api;
-                // Dispatch Cmd/Ctrl+Shift+1 to trigger "Zoom to fit" after Excalidraw is ready
-                setTimeout(() => {
-                  const canvas = document.querySelector(".editor-canvas");
-                  if (canvas) {
-                    const isMac = navigator.platform.includes("Mac");
-                    canvas.dispatchEvent(
-                      new KeyboardEvent("keydown", {
-                        key: "1",
-                        code: "Digit1",
-                        shiftKey: true,
-                        ctrlKey: !isMac,
-                        metaKey: isMac,
-                        bubbles: true,
-                      }),
-                    );
-                  }
-                }, 500);
-              }}
+              excalidrawAPI={(api: any) => { excalidrawApiRef.current = api; setEditorReady(true); }}
               initialData={{
                 elements: getEditorElements() as any,
+                scrollToContent: true,
               }}
               theme="light"
             />

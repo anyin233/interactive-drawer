@@ -23,6 +23,7 @@ async def tool_loop(
     model: str,
     messages: list[dict],
     mcp: McpManager,
+    diagram_screenshot: str | None = None,
 ) -> AsyncGenerator[dict, None]:
     """Run the LLM <-> MCP tool loop, yielding SSE events.
 
@@ -41,6 +42,7 @@ async def tool_loop(
         model: The model identifier (e.g. "gpt-4o").
         messages: The user-provided conversation history (list of message dicts).
         mcp: The McpManager instance for tool discovery and execution.
+        diagram_screenshot: Optional base64-encoded PNG of the current diagram.
 
     Yields:
         Dicts representing SSE events:
@@ -55,7 +57,34 @@ async def tool_loop(
     logger.debug("Tool loop starting with %d tools: %s", len(tools), [t["function"]["name"] for t in tools])
 
     # Prepend the system prompt to the conversation
-    all_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+    all_messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    # If a diagram screenshot is provided, inject it as a vision message
+    # before the user's latest message so the LLM can see the current diagram
+    if diagram_screenshot:
+        # Insert all messages except the last one
+        all_messages.extend(messages[:-1])
+        # Inject the screenshot as a multimodal user message
+        all_messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "[Current diagram state - visual reference]"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{diagram_screenshot}",
+                        },
+                    },
+                ],
+            }
+        )
+        # Then append the latest user message
+        all_messages.append(messages[-1])
+        logger.debug("Injected diagram screenshot (%d chars) before last user message",
+                       len(diagram_screenshot))
+    else:
+        all_messages.extend(messages)
 
     for iteration in range(MAX_ITERATIONS):
         try:

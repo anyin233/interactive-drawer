@@ -142,3 +142,28 @@ class TestChatRequest:
             ChatRequest(
                 messages=[Message(role="user", content="hello")],
             )
+
+    def test_chat_request_with_screenshot(self):
+        """A ChatRequest can include an optional diagram_screenshot field."""
+        request = ChatRequest(
+            messages=[Message(role="user", content="Make it blue")],
+            config=ApiConfig(
+                base_url="https://api.openai.com/v1",
+                api_key="sk-test-key",
+            ),
+            diagram_screenshot="iVBORw0KGgoAAAANS...",
+        )
+
+        assert request.diagram_screenshot == "iVBORw0KGgoAAAANS..."
+
+    def test_chat_request_screenshot_defaults_to_none(self):
+        """diagram_screenshot should default to None when not provided."""
+        request = ChatRequest(
+            messages=[Message(role="user", content="Draw a circle")],
+            config=ApiConfig(
+                base_url="https://api.openai.com/v1",
+                api_key="sk-test-key",
+            ),
+        )
+
+        assert request.diagram_screenshot is None

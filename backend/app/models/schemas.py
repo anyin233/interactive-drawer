@@ -42,7 +42,9 @@ class ChatRequest(BaseModel):
     Args:
         messages: The conversation history as a list of Message objects.
         config: The API configuration specifying which provider/model to use.
+        diagram_screenshot: Optional base64-encoded PNG of the current diagram state.
     """
 
     messages: list[Message]
     config: ApiConfig
+    diagram_screenshot: str | None = None

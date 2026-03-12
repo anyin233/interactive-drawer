@@ -183,3 +183,60 @@ class TestToolLoop:
         assert len(events) == 1
         assert events[0]["event"] == "error"
         assert "API rate limit exceeded" in events[0]["data"]["message"]
+
+    async def test_screenshot_injected_into_messages(self):
+        """When diagram_screenshot is provided, a vision message is injected before the last user message."""
+        client = AsyncMock()
+        client.chat.completions.create.return_value = _make_text_response("Updated the diagram.")
+
+        mcp = AsyncMock()
+        mcp.get_openai_tools.return_value = []
+
+        screenshot_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
+        messages = [
+            {"role": "user", "content": "Draw a box"},
+            {"role": "assistant", "content": "Done."},
+            {"role": "user", "content": "Make it blue"},
+        ]
+
+        events = await _collect_events(
+            tool_loop(client, "gpt-4o", messages, mcp, diagram_screenshot=screenshot_b64)
+        )
+
+        # Should still get text + done
+        assert events[0]["event"] == "text"
+        assert events[1]["event"] == "done"
+
+        # Verify the messages passed to LLM include the screenshot
+        call_args = client.chat.completions.create.call_args
+        sent_messages = call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0] if call_args[0] else call_args.kwargs["messages"]
+        # Find the vision message (has content as a list)
+        vision_msgs = [m for m in sent_messages if isinstance(m.get("content"), list)]
+        assert len(vision_msgs) == 1
+        vision_content = vision_msgs[0]["content"]
+        assert vision_content[0]["type"] == "text"
+        assert "visual reference" in vision_content[0]["text"]
+        assert vision_content[1]["type"] == "image_url"
+        assert screenshot_b64 in vision_content[1]["image_url"]["url"]
+
+    async def test_no_screenshot_no_vision_message(self):
+        """When diagram_screenshot is None, no vision message is injected."""
+        client = AsyncMock()
+        client.chat.completions.create.return_value = _make_text_response("Hello!")
+
+        mcp = AsyncMock()
+        mcp.get_openai_tools.return_value = []
+
+        messages = [{"role": "user", "content": "hi"}]
+
+        events = await _collect_events(
+            tool_loop(client, "gpt-4o", messages, mcp, diagram_screenshot=None)
+        )
+
+        assert events[0]["event"] == "text"
+
+        # Verify no vision messages were injected
+        call_args = client.chat.completions.create.call_args
+        sent_messages = call_args.kwargs.get("messages") or call_args[1].get("messages") or call_args[0][0] if call_args[0] else call_args.kwargs["messages"]
+        vision_msgs = [m for m in sent_messages if isinstance(m.get("content"), list)]
+        assert len(vision_msgs) == 0

@@ -31,7 +31,13 @@ async def chat(request: ChatRequest):
 
     async def event_generator():
         """Wrap the tool_loop output into SSE-compatible dicts."""
-        async for event in tool_loop(client, request.config.model, messages, mcp_manager):
+        async for event in tool_loop(
+            client,
+            request.config.model,
+            messages,
+            mcp_manager,
+            diagram_screenshot=request.diagram_screenshot,
+        ):
             yield {"event": event["event"], "data": json.dumps(event["data"])}
 
     return EventSourceResponse(event_generator())

@@ -33,7 +33,7 @@ def _patch_mcp_and_llm():
     Yields an async generator that produces a text event then done.
     """
 
-    async def fake_tool_loop(client, model, messages, mcp):
+    async def fake_tool_loop(client, model, messages, mcp, diagram_screenshot=None):
         """Fake tool_loop that yields a simple text + done sequence."""
         yield {"event": "text", "data": {"content": "Here is your circle."}}
         yield {"event": "done", "data": {}}
@@ -101,3 +101,25 @@ class TestChatEndpoint:
                 break
         else:
             pytest.fail("No 'event: text' line found in SSE body")
+
+    @pytest.mark.usefixtures("_patch_mcp_and_llm")
+    async def test_chat_with_screenshot_accepted(self):
+        """A request with diagram_screenshot should be accepted (200)."""
+        body = {
+            "messages": [{"role": "user", "content": "Make it blue"}],
+            "config": {
+                "base_url": "https://api.example.com/v1",
+                "api_key": "sk-test-123",
+                "model": "gpt-4o",
+            },
+            "diagram_screenshot": "iVBORw0KGgoAAAANS...",
+        }
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            response = await client.post("/api/chat", json=body)
+
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]

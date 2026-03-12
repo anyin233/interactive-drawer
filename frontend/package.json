@@ -17,6 +17,12 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0"
   },
+  "overrides": {
+    "@radix-ui/react-tabs": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    }
+  },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.1.0",

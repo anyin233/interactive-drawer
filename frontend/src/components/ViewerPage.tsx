@@ -35,6 +35,8 @@ interface SessionMeta {
 
 /**
  * Convert raw elements using Excalidraw's skeleton API for label support.
+ * Elements that already have full Excalidraw properties (e.g. from the editor)
+ * are passed through without re-processing to preserve user-set styles.
  *
  * @param els - Raw elements from the session.
  * @returns Converted Excalidraw elements.
@@ -42,6 +44,17 @@ interface SessionMeta {
 function convertRawElements(els: RawElement[]): RawElement[] {
   const pseudos = els.filter((el) => PSEUDO_TYPES.has(el.type));
   const real = els.filter((el) => !PSEUDO_TYPES.has(el.type));
+
+  // Only elements with `label` shorthand need skeleton API conversion.
+  // Elements from the Excalidraw editor are already full elements and
+  // re-processing them would strip user-set styles (font, roughness, etc.).
+  const needsConversion = real.some((el) => el.label != null);
+
+  if (!needsConversion) {
+    // Already full Excalidraw elements — pass through as-is
+    return [...real, ...pseudos];
+  }
+
   const withDefaults = real.map((el) =>
     el.label
       ? { ...el, label: { textAlign: "center", verticalAlign: "middle", ...el.label } }
@@ -51,7 +64,8 @@ function convertRawElements(els: RawElement[]): RawElement[] {
   const converted = convertToExcalidrawElements(withDefaults as any, {
     regenerateIds: false,
   } as any).map((el: RawElement) =>
-    el.type === "text" ? { ...el, fontFamily: 1 } : el,
+    // Only default fontFamily for text created by the skeleton API (no explicit fontFamily)
+    el.type === "text" && el.fontFamily == null ? { ...el, fontFamily: 1 } : el,
   );
   return [...converted, ...pseudos];
 }

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.vite/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.env
+.venv/
+venv/
+excalidraw-mcp/
+test-results/
+playwright-report/
+.DS_Store

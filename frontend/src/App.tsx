@@ -1,9 +1,11 @@
 import { useState, Component, type ReactNode } from "react";
+import { Routes, Route } from "react-router-dom";
 import { useChat } from "./hooks/useChat";
 import { useSettings } from "./hooks/useSettings";
 import ChatPanel from "./components/ChatPanel";
 import DrawingPanel from "./components/DrawingPanel";
 import SettingsModal from "./components/SettingsModal";
+import ViewerPage from "./components/ViewerPage";
 import "./App.css";
 
 /**
@@ -48,15 +50,11 @@ class DrawingErrorBoundary extends Component<
 }
 
 /**
- * Root application component with a split-panel layout.
+ * Main chat + drawing layout (the original app).
  *
- * Left panel: ChatPanel for conversation with the assistant.
- * Right panel: DrawingPanel wrapping Excalidraw for visual output.
- * Overlay: SettingsModal for API configuration (shown on first visit or on demand).
- *
- * @returns The top-level application element.
+ * @returns The split-panel chat interface.
  */
-export default function App() {
+function ChatLayout() {
   const { config, updateConfig, hasConfig } = useSettings();
   const {
     messages,
@@ -107,5 +105,22 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Root application component with routing.
+ *
+ * / — Original chat + drawing interface.
+ * /view/:sessionKey — Viewer page for remote MCP sessions.
+ *
+ * @returns The routed application element.
+ */
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<ChatLayout />} />
+      <Route path="/view/:sessionKey" element={<ViewerPage />} />
+    </Routes>
   );
 }

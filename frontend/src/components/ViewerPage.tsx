@@ -8,6 +8,7 @@
 import {
   Excalidraw,
   exportToSvg,
+  exportToBlob,
   convertToExcalidrawElements,
   restore,
   CaptureUpdateAction,
@@ -141,6 +142,72 @@ export default function ViewerPage() {
     setZoom(1);
     setPan({ x: 0, y: 0 });
   }, []);
+
+  // ============================================================
+  // Download helpers
+  // ============================================================
+
+  /**
+   * Trigger a browser download for a Blob with the given filename.
+   *
+   * @param blob - Data to download.
+   * @param filename - Suggested filename.
+   */
+  const triggerDownload = useCallback((blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  /**
+   * Download the current diagram as an SVG file.
+   */
+  const handleDownloadSvg = useCallback(async () => {
+    const els = convertedElementsRef.current;
+    if (els.length === 0) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const svg = await exportToSvg({
+      elements: els as any,
+      appState: {
+        viewBackgroundColor: "transparent",
+        exportBackground: false,
+      } as any,
+      files: null,
+      exportPadding: EXPORT_PADDING,
+    });
+
+    const svgString = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    triggerDownload(blob, `diagram-${sessionKey ?? "export"}.svg`);
+  }, [sessionKey, triggerDownload]);
+
+  /**
+   * Download the current diagram as a transparent-background PNG file.
+   */
+  const handleDownloadPng = useCallback(async () => {
+    const els = convertedElementsRef.current;
+    if (els.length === 0) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const blob = await exportToBlob({
+      elements: els as any,
+      appState: {
+        viewBackgroundColor: "transparent",
+        exportBackground: false,
+      } as any,
+      files: null,
+      exportPadding: EXPORT_PADDING,
+      mimeType: "image/png",
+    });
+
+    triggerDownload(blob, `diagram-${sessionKey ?? "export"}.png`);
+  }, [sessionKey, triggerDownload]);
 
   // ============================================================
   // Fetch session data
@@ -417,9 +484,17 @@ export default function ViewerPage() {
             </span>
           )}
           {hasElements && !isEditing && (
-            <button style={styles.editButton} onClick={() => setIsEditing(true)}>
-              Edit Diagram
-            </button>
+            <>
+              <button style={styles.downloadButton} onClick={handleDownloadSvg}>
+                SVG
+              </button>
+              <button style={styles.downloadButton} onClick={handleDownloadPng}>
+                PNG
+              </button>
+              <button style={styles.editButton} onClick={() => setIsEditing(true)}>
+                Edit Diagram
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -541,6 +616,16 @@ const styles: Record<string, React.CSSProperties> = {
   expiry: {
     color: "#9ca3af",
     fontSize: "12px",
+  },
+  downloadButton: {
+    padding: "6px 12px",
+    backgroundColor: "#fff",
+    color: "#374151",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: 500,
   },
   editButton: {
     padding: "6px 16px",

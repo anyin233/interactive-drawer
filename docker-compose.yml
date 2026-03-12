@@ -1,0 +1,13 @@
+services:
+  excalidraw-mcp:
+    build: .
+    container_name: excalidraw-mcp
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

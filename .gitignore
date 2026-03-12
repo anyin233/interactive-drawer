@@ -9,7 +9,6 @@ __pycache__/
 .env
 .venv/
 venv/
-excalidraw-mcp/
 test-results/
 playwright-report/
 .DS_Store

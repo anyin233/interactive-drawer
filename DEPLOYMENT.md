@@ -1,6 +1,6 @@
 # Deployment Guide
 
-From `git clone` to a fully deployed MCP service for LLMs.
+从 git clone 到完整部署的分步指南。覆盖前置条件、sidecar 与全栈两种部署方式、环境变量、以及 PM2/systemd/Docker/nginx 生产部署方案。
 
 ## Prerequisites
 
@@ -52,6 +52,8 @@ The server starts on **http://localhost:3001** with:
 | `GET /api/sessions/:key/svg` | Rendered SVG |
 | `/view/:key` | Browser viewer + editor |
 | `/` | Landing page with status and config |
+
+To connect LLMs (Claude Desktop, Claude Code, etc.), see [excalidraw-mcp/README.md](excalidraw-mcp/README.md#connecting-llms). For API details, see [excalidraw-mcp/docs/remote-mcp-api.md](excalidraw-mcp/docs/remote-mcp-api.md).
 
 ## Full Stack (Chat UI + MCP)
 
@@ -122,98 +124,6 @@ bash scripts/setup.sh
 ```
 
 This clones the MCP submodule (if missing), builds it, installs backend and frontend dependencies, and sets up E2E test tooling.
-
-## Connecting LLMs
-
-### Claude Desktop
-
-Add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "excalidraw": {
-      "url": "http://localhost:3001/mcp"
-    }
-  }
-}
-```
-
-Claude Desktop connects via MCP Streamable HTTP. No API key or auth needed.
-
-### Claude Code (CLI)
-
-Use the included skill:
-
-```bash
-# Via the /draw skill command (if installed)
-/draw http://localhost:3001
-
-# Or via the CLI helper directly
-node excalidraw-mcp/skill/scripts/mcp-client.mjs --server http://localhost:3001 create-session
-```
-
-You can also create a config file at the project root or `~/.excalidraw-mcp.json`:
-
-```json
-{
-  "server": "http://localhost:3001"
-}
-```
-
-### Other MCP Clients
-
-Any client supporting [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) can connect to `http://localhost:3001/mcp`.
-
-**Protocol handshake:**
-
-```bash
-# Step 1: Initialize (save the mcp-session-id header)
-curl -s -D- -X POST http://localhost:3001/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "initialize",
-    "params": {
-      "protocolVersion": "2025-03-26",
-      "capabilities": {},
-      "clientInfo": {"name": "my-client", "version": "1.0"}
-    },
-    "id": 1
-  }'
-
-# Step 2: Call a tool (use mcp-session-id from step 1)
-curl -s -X POST http://localhost:3001/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -H "Mcp-Session-Id: <session-id-from-step-1>" \
-  -d '[
-    {"jsonrpc":"2.0","method":"notifications/initialized"},
-    {"jsonrpc":"2.0","method":"tools/call",
-     "params":{"name":"create_session","arguments":{}}, "id":2}
-  ]'
-```
-
-## MCP Tools Available to LLMs
-
-Once connected, LLMs have access to these tools:
-
-| Tool | Purpose |
-|------|---------|
-| `create_session` | Create a new 24h drawing session → returns session key + viewer URL |
-| `read_me` | Get the Excalidraw element format reference (call once before drawing) |
-| `create_view` | Render a diagram from JSON elements → returns SVG + checkpoint ID |
-| `get_current_view` | Get latest SVG (includes any browser edits by the user) |
-
-**Typical LLM workflow:**
-
-1. `create_session` → get session key and viewer URL
-2. `read_me` → learn the element format
-3. `create_view` with elements JSON → render the diagram
-4. Share the viewer URL with the user
-5. `get_current_view` → check for user edits
-6. `create_view` with `restoreCheckpoint` → incremental updates
 
 ## Environment Variables
 

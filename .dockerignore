@@ -1,0 +1,46 @@
+**/node_modules/
+**/dist/
+**/.vite/
+**/.DS_Store
+**/*.tsbuildinfo
+
+# Python backend (not needed for sidecar mode)
+backend/
+e2e/
+
+# Git
+.git/
+.gitmodules
+**/.gitignore
+
+# Python artifacts
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.ruff_cache/
+**/*.egg-info/
+**/.venv/
+**/venv/
+
+# IDE & editor
+**/.vscode/
+**/.idea/
+
+# Env & secrets
+**/.env
+**/.env.*
+
+# Test artifacts
+test-results/
+playwright-report/
+
+# Docs (not needed at runtime)
+*.md
+!excalidraw-mcp/src/**
+
+# Lock files not needed (we keep package-lock.json)
+**/bun.lock
+**/pnpm-lock.yaml
+
+# Misc
+scripts/

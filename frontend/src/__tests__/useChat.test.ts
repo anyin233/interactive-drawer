@@ -105,4 +105,55 @@ describe("useChat hook", () => {
 
     expect(result.current.elements).toEqual(newElements);
   });
+
+  /**
+   * lastScreenshot should be null initially and updatable via setScreenshot.
+   */
+  it("test_screenshot_state_initial", () => {
+    const { result } = renderHook(() => useChat());
+
+    expect(result.current.lastScreenshot).toBeNull();
+  });
+
+  /**
+   * setScreenshot should update lastScreenshot state.
+   */
+  it("test_screenshot_state_update", () => {
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.setScreenshot("base64pngdata");
+    });
+
+    expect(result.current.lastScreenshot).toBe("base64pngdata");
+  });
+
+  /**
+   * After sendMessage, the screenshot should be cleared (set to null).
+   */
+  it("test_screenshot_cleared_after_send", async () => {
+    const { result } = renderHook(() => useChat());
+
+    // Set a screenshot first
+    act(() => {
+      result.current.setScreenshot("some_base64_data");
+    });
+    expect(result.current.lastScreenshot).toBe("some_base64_data");
+
+    // Send a message — screenshot should be passed to streamChat and cleared
+    await act(async () => {
+      await result.current.sendMessage("Update the diagram", testConfig);
+    });
+
+    expect(result.current.lastScreenshot).toBeNull();
+
+    // Verify streamChat was called with the screenshot as 5th argument
+    expect(mockStreamChat).toHaveBeenCalledWith(
+      expect.any(Array),
+      testConfig,
+      expect.any(Function),
+      expect.any(Object),
+      "some_base64_data",
+    );
+  });
 });

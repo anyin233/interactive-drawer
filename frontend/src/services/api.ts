@@ -28,6 +28,7 @@ export function parseSSELine(
  * @param config - API connection configuration (base URL, key, model).
  * @param onEvent - Callback invoked once per parsed SSE event.
  * @param signal - Optional AbortSignal for cancellation.
+ * @param diagramScreenshot - Optional base64 PNG of the current diagram state.
  * @throws Error if the HTTP response is not OK or has no body.
  */
 export async function streamChat(
@@ -35,18 +36,24 @@ export async function streamChat(
   config: ApiConfig,
   onEvent: (event: SSEEvent) => void,
   signal?: AbortSignal,
+  diagramScreenshot?: string | null,
 ): Promise<void> {
+  const body: Record<string, unknown> = {
+    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    config: {
+      base_url: config.baseUrl,
+      api_key: config.apiKey,
+      model: config.model,
+    },
+  };
+  if (diagramScreenshot) {
+    body.diagram_screenshot = diagramScreenshot;
+  }
+
   const response = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      config: {
-        base_url: config.baseUrl,
-        api_key: config.apiKey,
-        model: config.model,
-      },
-    }),
+    body: JSON.stringify(body),
     signal,
   });
 

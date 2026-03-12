@@ -63,6 +63,7 @@ export default function App() {
     isStreaming,
     elements,
     toolStatus,
+    setScreenshot,
     sendMessage,
     stopStreaming,
   } = useChat();
@@ -87,7 +88,11 @@ export default function App() {
         onSettingsClick={() => setShowSettings(true)}
       />
       <DrawingErrorBoundary>
-        <DrawingPanel elements={elements} />
+        <DrawingPanel
+          elements={elements}
+          isStreaming={isStreaming}
+          onScreenshot={setScreenshot}
+        />
       </DrawingErrorBoundary>
       {showSettings && (
         <SettingsModal

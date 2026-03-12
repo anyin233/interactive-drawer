@@ -11,13 +11,15 @@ import { streamChat } from "../services/api";
  * Hook that manages the chat conversation state and SSE streaming.
  *
  * Provides message history, streaming status, Excalidraw elements,
- * tool status, and actions to send messages or stop streaming.
+ * tool status, screenshot state, and actions to send messages or stop streaming.
  *
  * @returns messages - Array of conversation messages.
  * @returns isStreaming - Whether a streaming request is in progress.
  * @returns elements - The latest Excalidraw elements from the server.
  * @returns setElements - Setter to update elements externally.
  * @returns toolStatus - Description of the currently running tool, or null.
+ * @returns lastScreenshot - Base64 PNG of the last rendered diagram, or null.
+ * @returns setScreenshot - Setter for the screenshot (called by DrawingPanel).
  * @returns sendMessage - Sends a user message and streams the response.
  * @returns stopStreaming - Aborts the current streaming request.
  */
@@ -26,6 +28,7 @@ export function useChat() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [elements, setElements] = useState<ExcalidrawElement[]>([]);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
+  const [lastScreenshot, setScreenshot] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(
@@ -52,6 +55,10 @@ export function useChat() {
           ...updatedMessages,
           { id: assistantId, role: "assistant", content: "" },
         ]);
+
+        // Capture current screenshot and clear it for next round
+        const screenshotToSend = lastScreenshot;
+        setScreenshot(null);
 
         await streamChat(
           updatedMessages,
@@ -95,6 +102,7 @@ export function useChat() {
             }
           },
           controller.signal,
+          screenshotToSend,
         );
       } catch (err) {
         if (!(err instanceof DOMException && err.name === "AbortError")) {
@@ -112,7 +120,7 @@ export function useChat() {
         abortRef.current = null;
       }
     },
-    [messages],
+    [messages, lastScreenshot],
   );
 
   const stopStreaming = useCallback(() => {
@@ -125,6 +133,8 @@ export function useChat() {
     elements,
     setElements,
     toolStatus,
+    lastScreenshot,
+    setScreenshot,
     sendMessage,
     stopStreaming,
   };

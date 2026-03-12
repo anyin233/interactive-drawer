@@ -298,6 +298,29 @@ export default function ViewerPage() {
       });
       if (!svgRef.current) return;
 
+      // Measure the actual rendered extent via getBBox() to fix the viewBox.
+      // exportToSvg calculates bounds from element width/height which may be
+      // missing for API-created text, causing the viewBox to be too small.
+      const hiddenContainer = document.createElement("div");
+      hiddenContainer.style.cssText =
+        "position:fixed;left:-9999px;top:-9999px;visibility:hidden";
+      document.body.appendChild(hiddenContainer);
+      hiddenContainer.appendChild(svg);
+      try {
+        const bbox = svg.getBBox();
+        if (bbox.width > 0 && bbox.height > 0) {
+          const pad = EXPORT_PADDING;
+          svg.setAttribute(
+            "viewBox",
+            `${bbox.x - pad} ${bbox.y - pad} ${bbox.width + pad * 2} ${bbox.height + pad * 2}`,
+          );
+        }
+      } catch {
+        // getBBox can fail in some edge cases — keep original viewBox
+      }
+      hiddenContainer.removeChild(svg);
+      document.body.removeChild(hiddenContainer);
+
       svg.removeAttribute("height");
       svg.style.width = "100%";
       svg.style.height = "auto";
@@ -364,17 +387,40 @@ export default function ViewerPage() {
     setIsEditing(false);
   }, [syncEdits]);
 
+  /**
+   * Estimate text element dimensions when width/height are missing.
+   * Provides approximate values so Excalidraw doesn't treat them as zero-sized.
+   * The settle effect later recalculates exact dimensions after fonts load.
+   *
+   * @param els - Raw elements, some text elements may lack width/height.
+   * @returns Elements with estimated text dimensions filled in.
+   */
+  const ensureTextDimensions = useCallback((els: RawElement[]): RawElement[] => {
+    return els.map((el) => {
+      if (el.type !== "text" || (el.width && el.height)) return el;
+      const text = (el.text as string) ?? "";
+      const fontSize = (el.fontSize as number) ?? 20;
+      const lines = text.split("\n");
+      const longestLine = Math.max(...lines.map((l) => l.length), 1);
+      // Approximate: each character ~0.6em wide, line height ~1.35em
+      const width = longestLine * fontSize * 0.6;
+      const height = lines.length * fontSize * 1.35;
+      return { ...el, width, height };
+    });
+  }, []);
+
   /** Prepare elements for the Excalidraw editor. */
   const getEditorElements = useCallback(() => {
     const els = convertedElementsRef.current;
     if (els.length === 0) return [];
+    const withDims = ensureTextDimensions(els);
     const { elements: restored } = restore(
-      { elements: els as any },
+      { elements: withDims as any },
       null,
       null,
     );
     return restored;
-  }, []);
+  }, [ensureTextDimensions]);
 
   // Settle effect: after Excalidraw API is ready, load fonts, refresh dimensions
   useEffect(() => {

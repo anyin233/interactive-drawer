@@ -1,110 +1,190 @@
-# Interactive Excalidraw Drawer
+# Interactive Drawer
 
-Interactive Excalidraw Drawer 让 LLM 实时创建和编辑 Excalidraw 图表。支持两种模式：内嵌 LLM 的聊天 UI，以及外部 LLM 通过 MCP HTTP 连接的 sidecar 模式。生产部署请参考 [DEPLOYMENT.md](DEPLOYMENT.md)。
+> Excalidraw MCP server — let any LLM create and share interactive diagrams
 
-## Architecture
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org)
+[![MCP](https://img.shields.io/badge/Protocol-MCP%202025--03--26-blue)](https://modelcontextprotocol.io)
 
-Two usage modes share the same frontend and MCP server:
+![Diagram Viewer](docs/screenshot-viewer.png)
 
-**Chat mode** — embedded LLM chat with live diagram streaming:
+---
 
-```mermaid
-flowchart LR
-    subgraph Frontend["Frontend (React/Vite)"]
-        CP[ChatPanel] ~~~ DP[DrawingPanel]
-    end
-    subgraph Backend["Backend (FastAPI)"]
-        API["POST /api/chat\ntool_loop()"]
-    end
-    subgraph MCP["MCP Server (Node)"]
-        Tools[excalidraw-mcp]
-    end
-    Frontend -->|SSE| Backend
-    Backend <-->|stdio| MCP
-```
+## What It Does
 
-**Sidecar mode** — external LLMs connect via HTTP, single-domain deployment:
+Interactive Drawer gives LLMs an MCP tool to draw [Excalidraw](https://excalidraw.com) diagrams. The LLM calls `create_view`, a live viewer link is returned, and the user can open, edit, and export the diagram in their browser — no manual drawing required.
 
-```mermaid
-flowchart LR
-    LLM["External LLM"] -->|MCP HTTP| Server
-    Browser["User Browser"] -->|open viewer| Server
-    subgraph Server["MCP Server :3001 (--static)"]
-        A["POST /mcp"]
-        B["/api/sessions"]
-        C["/view/:key"]
-        D["/ (landing)"]
-    end
-```
+Works with **Claude Desktop, Cursor, Goose, Claude Code**, and any MCP-compatible client.
 
-- **Frontend** owns conversation state, sends full history per request
-- **Backend** is stateless per-request; MCP subprocess is persistent (singleton)
-- **API credentials** are stored in localStorage and sent per request
+---
 
 ## Quick Start
 
-### Chat Mode (3 terminals)
-
 ```bash
-# 1. Install
+git clone https://github.com/anyin233/interactive-drawer
+cd interactive-drawer
+
+# Build
 cd excalidraw-mcp && npm install && npm run build && cd ..
-cd backend && uv sync --all-extras && cd ..
-cd frontend && npm install && cd ..
-
-# 2. Run
-# Terminal 1: Backend
-cd backend && uv run uvicorn app.main:app --reload --port 8000
-# Terminal 2: Frontend dev server
-cd frontend && npm run dev
-# Terminal 3 is optional — MCP subprocess starts automatically
-
-# 3. Open http://localhost:5173
-```
-
-### Sidecar Mode (single domain, single port)
-
-```bash
-# 1. Build frontend
 cd frontend && npm install && npm run build && cd ..
 
-# 2. Build and start MCP server with --static flag
-cd excalidraw-mcp && npm install && npm run build
-node dist/index.js --static ../frontend/dist
-
-# → Everything on http://localhost:3001
-#   MCP endpoint:  POST /mcp
-#   Viewer pages:  /view/:sessionKey
-#   Landing page:  /
+# Run
+node excalidraw-mcp/dist/index.js --static frontend/dist
+# → http://localhost:3001
 ```
 
-Point your external LLM (Claude Desktop, etc.) to `http://localhost:3001/mcp`. Viewer links returned by the MCP tools will point to the same origin — no separate frontend server needed.
-
-Or use the setup script: `./scripts/setup.sh`
-
-## Usage
-
-### Chat Mode
-
-1. Open `http://localhost:5173`
-2. Configure API settings (base URL, API key, model) in the settings modal
-3. Describe what you want to draw (e.g., "Draw a flowchart with 3 boxes connected by arrows")
-4. The LLM calls excalidraw-mcp tools, and the diagram renders live
-
-### Sidecar Mode
-
-See [excalidraw-mcp/README.md](excalidraw-mcp/README.md) for connecting LLMs, CLI usage, browser viewer, and the Claude Code skill.
-
-## Testing
+Or use the setup script:
 
 ```bash
-# Backend (29 tests)
-cd backend && uv run pytest -v
-
-# Frontend (29 tests)
-cd frontend && npx vitest run
-
-# E2E (8 tests) — requires frontend dev server
-cd e2e && npm install && npx playwright install chromium
-cd frontend && npm run dev &
-cd e2e && npx playwright test
+bash scripts/setup.sh
+node excalidraw-mcp/dist/index.js --static frontend/dist
 ```
+
+---
+
+## Connect Your LLM
+
+### Claude Desktop
+
+```json
+{
+  "mcpServers": {
+    "excalidraw": {
+      "url": "http://localhost:3001/mcp"
+    }
+  }
+}
+```
+
+### Cursor / Goose / any MCP client
+
+```
+http://localhost:3001/mcp
+```
+
+### Claude Code / CLI
+
+```bash
+echo '{"server":"http://localhost:3001"}' > ~/.excalidraw-mcp.json
+node excalidraw-mcp/skill/scripts/mcp-client.mjs create-session
+```
+
+---
+
+## MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `create_session` | Create a drawing session → returns session key + viewer URL |
+| `read_me` | Get the Excalidraw element format reference |
+| `create_view` | Render JSON elements → returns viewer URL + SVG |
+| `get_current_view` | Fetch latest state (picks up user edits from the browser) |
+
+**Workflow:**
+```
+create_session → read_me → create_view → share viewer URL → get_current_view → iterate
+```
+
+---
+
+## Viewer
+
+Each `/view/:key` link is a full Excalidraw editor:
+
+- Pan (drag), zoom (scroll), edit with full toolbar
+- SVG and PNG export
+- Edits are saved back to the session (LLM can read them via `get_current_view`)
+- Sessions expire after **24 hours**
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/mcp` | MCP Streamable HTTP |
+| `GET` | `/view/:key` | Browser viewer + editor |
+| `GET` | `/api/sessions/:key` | Session metadata |
+| `GET` | `/api/sessions/:key/elements` | Raw elements JSON |
+| `PUT` | `/api/sessions/:key/elements` | Replace elements |
+| `GET` | `/api/sessions/:key/svg` | Rendered SVG |
+| `GET` | `/` | Status page |
+
+---
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3001` | Server port |
+| `BASE_URL` | `http://localhost:PORT` | Public URL for viewer links |
+
+```bash
+PORT=3001 BASE_URL=https://draw.example.com \
+  node excalidraw-mcp/dist/index.js --static frontend/dist
+```
+
+---
+
+## Chat UI (Optional)
+
+A built-in React/Python chat interface lets you draw via conversation in the browser.
+
+Requires Python 3.11+ and [uv](https://astral.sh/uv).
+
+```bash
+cd backend && uv sync --all-extras
+cd frontend && npm install
+
+# 3 terminals:
+cd backend  && uv run uvicorn app.main:app --port 8000
+cd frontend && npm run dev            # → http://localhost:5173
+# MCP subprocess starts automatically from the backend
+```
+
+---
+
+## Deployment
+
+<details>
+<summary>systemd</summary>
+
+```ini
+[Service]
+WorkingDirectory=/opt/interactive-drawer
+ExecStart=node excalidraw-mcp/dist/index.js --static frontend/dist
+Environment=PORT=3001
+Environment=BASE_URL=https://draw.example.com
+Restart=always
+```
+
+</details>
+
+<details>
+<summary>Docker</summary>
+
+```bash
+docker build -t interactive-drawer .
+docker run -d -p 3001:3001 -e BASE_URL=https://draw.example.com interactive-drawer
+```
+
+</details>
+
+<details>
+<summary>nginx (TLS)</summary>
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_set_header Connection '';
+    proxy_buffering off;   # required for SSE / MCP Streamable HTTP
+}
+```
+
+</details>
+
+---
+
+## License
+
+MIT

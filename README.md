@@ -10,6 +10,14 @@
 
 ---
 
+## Architecture
+
+![Architecture](docs/architecture.png)
+
+[🔗 Interactive version — click to open, zoom and edit](https://drawplus.12th.day/view/6a29bb03-c7e8-4b25-b1bb-1586c0bf7f36)
+
+---
+
 ## What It Does
 
 Interactive Drawer gives LLMs an MCP tool to draw [Excalidraw](https://excalidraw.com) diagrams. The LLM calls `create_view`, a live viewer link is returned, and the user can open, edit, and export the diagram in their browser — no manual drawing required.

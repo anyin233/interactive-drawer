@@ -6,13 +6,9 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org)
 [![MCP](https://img.shields.io/badge/Protocol-MCP%202025--03--26-blue)](https://modelcontextprotocol.io)
 
-![Diagram Viewer](docs/screenshot-viewer.png)
-
----
-
 ## Architecture
 
-![Architecture](docs/architecture.png)
+![Architecture](docs/architecture.svg)
 
 [🔗 Interactive version — click to open, zoom and edit](https://drawplus.12th.day/view/6a29bb03-c7e8-4b25-b1bb-1586c0bf7f36)
 

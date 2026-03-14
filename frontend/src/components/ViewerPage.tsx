@@ -102,6 +102,19 @@ export default function ViewerPage() {
   const excalidrawApiRef = useRef<any>(null);
   const convertedElementsRef = useRef<RawElement[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fontsReady = useRef<Promise<void> | null>(null);
+
+  /**
+   * Ensure Excalifont is loaded before SVG export so text renders correctly.
+   *
+   * @returns A promise that resolves once the font is available.
+   */
+  const ensureFontsLoaded = useCallback(() => {
+    if (!fontsReady.current) {
+      fontsReady.current = document.fonts.load("20px Excalifont").then(() => {});
+    }
+    return fontsReady.current;
+  }, []);
 
   // ============================================================
   // Pan & Zoom state
@@ -335,6 +348,8 @@ export default function ViewerPage() {
 
       convertedElementsRef.current = excalidrawEls;
 
+      await ensureFontsLoaded();
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const svg = await exportToSvg({
         elements: excalidrawEls as any,
@@ -395,7 +410,7 @@ export default function ViewerPage() {
     } catch {
       // SVG rendering is best-effort
     }
-  }, []);
+  }, [ensureFontsLoaded]);
 
   // Re-render SVG when elements change
   useEffect(() => {

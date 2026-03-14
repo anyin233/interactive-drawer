@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
-<rect x="0" y="0" width="800" height="600" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -30 1000 930">
+<rect x="0" y="-30" width="1000" height="930" fill="#ffffff"/>
 <rect x="50" y="30" width="900" height="120" fill="#dbe4ff" stroke="transparent" stroke-width="2" rx="8"/>
 <text x="60" y="49" font-size="14" fill="#4a9eed">LLM Clients</text>
 <rect x="80" y="60" width="140" height="60" fill="#a5d8ff" stroke="#1e1e1e" stroke-width="2" rx="8"/>

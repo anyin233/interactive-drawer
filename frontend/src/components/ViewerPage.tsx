@@ -209,6 +209,27 @@ export default function ViewerPage() {
     triggerDownload(blob, `diagram-${sessionKey ?? "export"}.png`);
   }, [sessionKey, triggerDownload]);
 
+  /**
+   * Download the current diagram as an Excalidraw JSON file.
+   */
+  const handleDownloadExcalidraw = useCallback(() => {
+    const els = convertedElementsRef.current;
+    if (els.length === 0) return;
+
+    const excalidrawFile = {
+      type: "excalidraw",
+      version: 2,
+      source: "interactive-drawer",
+      elements: els,
+      appState: { viewBackgroundColor: "#ffffff" },
+      files: {},
+    };
+
+    const json = JSON.stringify(excalidrawFile, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    triggerDownload(blob, `diagram-${sessionKey ?? "export"}.excalidraw`);
+  }, [sessionKey, triggerDownload]);
+
   // ============================================================
   // Fetch session data
   // ============================================================
@@ -531,6 +552,9 @@ export default function ViewerPage() {
           )}
           {hasElements && !isEditing && (
             <>
+              <button style={styles.downloadButton} onClick={handleDownloadExcalidraw}>
+                Excalidraw
+              </button>
               <button style={styles.downloadButton} onClick={handleDownloadSvg}>
                 SVG
               </button>

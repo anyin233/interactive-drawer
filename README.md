@@ -78,14 +78,32 @@ node excalidraw-mcp/skill/scripts/mcp-client.mjs create-session
 | Tool | Description |
 |------|-------------|
 | `create_session` | Create a drawing session → returns session key + viewer URL |
-| `read_me` | Get the Excalidraw element format reference |
+| `read_me` | Get the Excalidraw element format reference (includes drawing style picker) |
 | `create_view` | Render JSON elements → returns viewer URL + SVG |
 | `get_current_view` | Fetch latest state (picks up user edits from the browser) |
 
 **Workflow:**
 ```
-create_session → read_me → create_view → share viewer URL → get_current_view → iterate
+create_session → read_me → ask user for drawing style → create_view → share viewer URL → get_current_view → iterate
 ```
+
+### Drawing Style Picker
+
+After calling `read_me`, the LLM will ask users to choose a **font** and **sloppiness** before drawing:
+
+| Font | Style |
+|------|-------|
+| Excalifont | Hand-drawn, casual (default) |
+| Nunito | Clean, rounded sans-serif |
+| Comic Shanns | Comic/playful |
+
+| Sloppiness | Style |
+|------------|-------|
+| Architect | Precise, clean lines |
+| Artist | Slightly rough (default) |
+| Cartoonist | Very rough, wobbly |
+
+Recommended combos: **Sketch** (default), **Clean** (Nunito + Architect), **Playful** (Comic Shanns + Cartoonist), and more.
 
 ---
 

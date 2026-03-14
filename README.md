@@ -10,8 +10,6 @@
 
 ![Architecture](docs/architecture.svg)
 
-[🔗 Interactive version — click to open, zoom and edit](https://drawplus.12th.day/view/6a29bb03-c7e8-4b25-b1bb-1586c0bf7f36)
-
 ---
 
 ## What It Does

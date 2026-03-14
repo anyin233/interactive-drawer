@@ -17,6 +17,7 @@ import "@excalidraw/excalidraw/index.css";
 import morphdom from "morphdom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useGestures } from "../hooks/useGestures";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RawElement = Record<string, any>;
@@ -107,41 +108,69 @@ export default function ViewerPage() {
   // ============================================================
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState(false);
-  const dragStartRef = useRef({ x: 0, y: 0 });
+  const panRef = useRef({ x: 0, y: 0 });
   const panStartRef = useRef({ x: 0, y: 0 });
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    // Only handle primary button (left click)
-    if (e.button !== 0) return;
-    setDragging(true);
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
-    panStartRef.current = { ...pan };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }, [pan]);
+  // Keep panRef in sync with state for gesture callbacks
+  panRef.current = pan;
 
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragging) return;
-    const dx = e.clientX - dragStartRef.current.x;
-    const dy = e.clientY - dragStartRef.current.y;
-    setPan({ x: panStartRef.current.x + dx, y: panStartRef.current.y + dy });
-  }, [dragging]);
+  const hasElements = elements.length > 0;
 
-  const handlePointerUp = useCallback(() => {
-    setDragging(false);
-  }, []);
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const factor = e.deltaY > 0 ? 0.92 : 1 / 0.92;
-    setZoom((z) => Math.min(Math.max(z * factor, 0.2), 8));
-  }, []);
-
-  /** Double-click resets to default fit view. */
-  const handleDoubleClick = useCallback(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, []);
+  const { isDragging: dragging } = useGestures(svgContainerRef, {
+    onDragStart: () => {
+      panStartRef.current = { ...panRef.current };
+    },
+    onDrag: (dx, dy) => {
+      setPan({ x: panStartRef.current.x + dx, y: panStartRef.current.y + dy });
+    },
+    onPinch: (scaleFactor, centerX, centerY, dx, dy) => {
+      setZoom((z) => {
+        const newZoom = Math.min(Math.max(z * scaleFactor, 0.2), 8);
+        setPan((p) => {
+          const container = svgContainerRef.current;
+          if (!container) return p;
+          const rect = container.getBoundingClientRect();
+          // Center of pinch relative to container center
+          const cx = centerX - rect.left - rect.width / 2;
+          const cy = centerY - rect.top - rect.height / 2;
+          return {
+            x: p.x + dx - cx * (scaleFactor - 1),
+            y: p.y + dy - cy * (scaleFactor - 1),
+          };
+        });
+        return newZoom;
+      });
+    },
+    onDoubleTap: () => {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+    },
+    onWheel: (_deltaX, deltaY, isZoomGesture, clientX, clientY) => {
+      if (isZoomGesture) {
+        // Zoom toward cursor
+        const factor = deltaY > 0 ? 0.92 : 1 / 0.92;
+        setZoom((z) => {
+          const newZoom = Math.min(Math.max(z * factor, 0.2), 8);
+          setPan((p) => {
+            const container = svgContainerRef.current;
+            if (!container) return p;
+            const rect = container.getBoundingClientRect();
+            const cx = clientX - rect.left - rect.width / 2;
+            const cy = clientY - rect.top - rect.height / 2;
+            return {
+              x: p.x - cx * (factor - 1),
+              y: p.y - cy * (factor - 1),
+            };
+          });
+          return newZoom;
+        });
+      } else {
+        // Plain scroll → zoom (original behavior)
+        const factor = deltaY > 0 ? 0.92 : 1 / 0.92;
+        setZoom((z) => Math.min(Math.max(z * factor, 0.2), 8));
+      }
+    },
+  }, { enabled: hasElements && !isEditing });
 
   // ============================================================
   // Download helpers
@@ -481,21 +510,6 @@ export default function ViewerPage() {
     }
   }, [isEditing]);
 
-  // Register non-passive wheel listener so preventDefault() works in Chrome
-  useEffect(() => {
-    const container = svgContainerRef.current;
-    if (!container || isEditing || elements.length === 0) return;
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const factor = e.deltaY > 0 ? 0.92 : 1 / 0.92;
-      setZoom((z) => Math.min(Math.max(z * factor, 0.2), 8));
-    };
-
-    container.addEventListener("wheel", onWheel, { passive: false });
-    return () => container.removeEventListener("wheel", onWheel);
-  }, [isEditing, elements.length]);
-
   // Escape key exits editor
   useEffect(() => {
     if (!isEditing) return;
@@ -532,8 +546,6 @@ export default function ViewerPage() {
       </div>
     );
   }
-
-  const hasElements = elements.length > 0;
 
   return (
     <div style={styles.container}>
@@ -577,11 +589,6 @@ export default function ViewerPage() {
             ...styles.svgContainer,
             cursor: dragging ? "grabbing" : "grab",
           }}
-          onPointerDown={hasElements ? handlePointerDown : undefined}
-          onPointerMove={hasElements ? handlePointerMove : undefined}
-          onPointerUp={hasElements ? handlePointerUp : undefined}
-          onPointerCancel={hasElements ? handlePointerUp : undefined}
-          onDoubleClick={hasElements ? handleDoubleClick : undefined}
         >
           {hasElements ? (
             <div

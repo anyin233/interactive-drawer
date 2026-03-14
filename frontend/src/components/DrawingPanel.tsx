@@ -10,6 +10,7 @@ import "@excalidraw/excalidraw/index.css";
 import morphdom from "morphdom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ExcalidrawElement } from "../types";
+import { useGestures } from "../hooks/useGestures";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RawElement = Record<string, any>;
@@ -567,26 +568,52 @@ export default function DrawingPanel({ elements, isStreaming, onScreenshot, onEl
     };
   }, []);
 
-  // Zoom: pinch-to-zoom / Ctrl+scroll, pan when zoomed, double-click to reset
-  useEffect(() => {
-    const container = svgRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      const isZoomGesture = e.ctrlKey || e.metaKey;
-      const isZoomedIn = Math.abs(zoomRef.current.scale - 1) > 0.01;
+  // Touch & mouse gestures: drag to pan, pinch to zoom, double-tap to reset, wheel zoom
+  useGestures(svgRef, {
+    onDrag: (_dx, _dy, incDx, incDy) => {
+      if (!baseViewBoxRef.current) return;
+      const container = svgRef.current;
+      if (!container) return;
+      const { w, h } = baseViewBoxRef.current;
+      const zoom = zoomRef.current;
+      // Convert pixel deltas to viewBox coordinates
+      zoom.panX -= (incDx / container.clientWidth) * (w / zoom.scale);
+      zoom.panY -= (incDy / container.clientHeight) * (h / zoom.scale);
+      applyZoom();
+    },
+    onPinch: (scaleFactor, centerX, centerY) => {
+      const container = svgRef.current;
+      if (!container || !baseViewBoxRef.current) return;
+      const zoom = zoomRef.current;
+      const newScale = Math.max(0.25, Math.min(8, zoom.scale * scaleFactor));
+      const rect = container.getBoundingClientRect();
+      const mx = (centerX - rect.left) / rect.width;
+      const my = (centerY - rect.top) / rect.height;
+      const { w, h } = baseViewBoxRef.current;
+      zoom.panX += w * (1 / newScale - 1 / zoom.scale) * (0.5 - mx);
+      zoom.panY += h * (1 / newScale - 1 / zoom.scale) * (0.5 - my);
+      zoom.scale = newScale;
+      applyZoom();
+    },
+    onDoubleTap: () => {
+      zoomRef.current = { scale: 1, panX: 0, panY: 0 };
+      applyZoom();
+    },
+    onWheel: (deltaX, deltaY, isZoomGesture, clientX, clientY) => {
+      const container = svgRef.current;
+      if (!container) return;
+      const zoom = zoomRef.current;
+      const isZoomedIn = Math.abs(zoom.scale - 1) > 0.01;
 
       if (!isZoomGesture && !isZoomedIn) return;
-      e.preventDefault();
 
-      const zoom = zoomRef.current;
       if (isZoomGesture) {
-        const factor = e.deltaY > 0 ? 0.97 : 1.03;
+        const factor = deltaY > 0 ? 0.97 : 1.03;
         const newScale = Math.max(0.25, Math.min(8, zoom.scale * factor));
         if (baseViewBoxRef.current) {
           const rect = container.getBoundingClientRect();
-          const mx = (e.clientX - rect.left) / rect.width;
-          const my = (e.clientY - rect.top) / rect.height;
+          const mx = (clientX - rect.left) / rect.width;
+          const my = (clientY - rect.top) / rect.height;
           const { w, h } = baseViewBoxRef.current;
           zoom.panX += w * (1 / newScale - 1 / zoom.scale) * (0.5 - mx);
           zoom.panY += h * (1 / newScale - 1 / zoom.scale) * (0.5 - my);
@@ -594,24 +621,12 @@ export default function DrawingPanel({ elements, isStreaming, onScreenshot, onEl
         zoom.scale = newScale;
       } else if (baseViewBoxRef.current) {
         const { w, h } = baseViewBoxRef.current;
-        zoom.panX += (e.deltaX / container.clientWidth) * (w / zoom.scale);
-        zoom.panY += (e.deltaY / container.clientHeight) * (h / zoom.scale);
+        zoom.panX += (deltaX / container.clientWidth) * (w / zoom.scale);
+        zoom.panY += (deltaY / container.clientHeight) * (h / zoom.scale);
       }
       applyZoom();
-    };
-
-    const handleDblClick = () => {
-      zoomRef.current = { scale: 1, panX: 0, panY: 0 };
-      applyZoom();
-    };
-
-    container.addEventListener("wheel", handleWheel, { passive: false });
-    container.addEventListener("dblclick", handleDblClick);
-    return () => {
-      container.removeEventListener("wheel", handleWheel);
-      container.removeEventListener("dblclick", handleDblClick);
-    };
-  }, [applyZoom]);
+    },
+  }, { enabled: !isEditing });
 
   // Keyboard shortcut: Escape to exit edit mode (with sync)
   useEffect(() => {

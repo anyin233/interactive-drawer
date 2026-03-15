@@ -20,16 +20,17 @@ function run(cmd, env = {}) {
 // - Native/binary packages, or packages with dynamic requires
 // - Large packages that are dynamically imported
 const externalPkgs = [
-  "@excalidraw/excalidraw",    // Dynamic import in svg-renderer.ts, huge
   "@modelcontextprotocol/sdk", // MCP core SDK
   "cors",                      // Express middleware
   "express",                   // HTTP framework
   "jsdom",                     // Dynamic import in svg-renderer.ts, native
-  "react",                     // Peer dep of excalidraw
-  "react-dom",                 // Peer dep of excalidraw
   "zod",                       // Schema validation
   "@upstash/redis",            // Optional, dynamic import
 ];
+
+// Stub out mermaid (excalidraw imports it but we never use it)
+const aliasFlags = '--alias:@excalidraw/mermaid-to-excalidraw=./src/stubs/mermaid-stub.ts';
+const loaderFlags = '--loader:.css=empty';
 
 const externalFlags = externalPkgs.map(p => `--external:${p}`).join(" ");
 
@@ -54,8 +55,8 @@ run("npx tsc -p tsconfig.server.json");
 // 5. Bundle server + entry with esbuild (selective externals)
 // Packages NOT in externalPkgs get bundled in, eliminating runtime deps
 // (e.g. @modelcontextprotocol/ext-apps — avoids 59MB Bun binary transitive deps)
-run(`npx esbuild src/server.ts --bundle --platform=node --format=esm ${externalFlags} --outfile=dist/server.js`);
-run(`npx esbuild src/main.ts --bundle --platform=node --format=esm ${externalFlags} --outfile=dist/index.js --banner:js="#!/usr/bin/env node"`);
+run(`npx esbuild src/server.ts --bundle --platform=node --format=esm ${externalFlags} ${aliasFlags} ${loaderFlags} --outfile=dist/server.js`);
+run(`npx esbuild src/main.ts --bundle --platform=node --format=esm ${externalFlags} ${aliasFlags} ${loaderFlags} --outfile=dist/index.js --banner:js="#!/usr/bin/env node"`);
 
 // 6. Build viewer (if viewer/ exists)
 if (existsSync(join(root, "viewer", "package.json"))) {

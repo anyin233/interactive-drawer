@@ -2,6 +2,7 @@
 
 > Excalidraw MCP server — let any LLM create and share interactive diagrams
 
+[![npm](https://img.shields.io/npm/v/interactive-drawer)](https://www.npmjs.com/package/interactive-drawer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-green)](https://nodejs.org)
 [![MCP](https://img.shields.io/badge/Protocol-MCP%202025--03--26-blue)](https://modelcontextprotocol.io)
@@ -49,6 +50,18 @@ interactive-drawer/
 
 ## Quick Start
 
+### npx (no install)
+
+```bash
+# Web mode — MCP server + viewer on http://localhost:3001
+npx interactive-drawer
+
+# Studio mode — stdin/stdout for Claude Desktop, Cursor, etc.
+npx interactive-drawer --stdio
+```
+
+### From source
+
 ```bash
 git clone https://github.com/anyin233/interactive-drawer
 cd interactive-drawer
@@ -83,20 +96,7 @@ Start the server, then point your client to the MCP endpoint:
 
 No server needed — the LLM client runs the process directly:
 
-**Claude Desktop:**
-
-```json
-{
-  "mcpServers": {
-    "excalidraw": {
-      "command": "node",
-      "args": ["/path/to/interactive-drawer/dist/index.js", "--stdio"]
-    }
-  }
-}
-```
-
-**npx (after npm publish):**
+**Claude Desktop / Cursor / any MCP client:**
 
 ```json
 {

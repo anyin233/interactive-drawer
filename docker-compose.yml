@@ -1,13 +1,11 @@
 services:
-  excalidraw-mcp:
+  interactive-drawer:
     build: .
-    container_name: excalidraw-mcp
+    container_name: interactive-drawer
     restart: unless-stopped
+    ports:
+      - "${PORT:-3001}:${PORT:-3001}"
     environment:
-      - PORT=3001
-    networks:
-      - proxy
-
-networks:
-  proxy:
-    external: true
+      - PORT=${PORT:-3001}
+      # Uncomment and set when behind a reverse proxy:
+      # - BASE_URL=https://draw.example.com

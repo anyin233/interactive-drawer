@@ -4,23 +4,9 @@
 **/.DS_Store
 **/*.tsbuildinfo
 
-# Python backend (not needed for sidecar mode)
-backend/
-e2e/
-
 # Git
 .git/
-.gitmodules
 **/.gitignore
-
-# Python artifacts
-**/__pycache__/
-**/*.pyc
-**/.pytest_cache/
-**/.ruff_cache/
-**/*.egg-info/
-**/.venv/
-**/venv/
 
 # IDE & editor
 **/.vscode/
@@ -36,11 +22,11 @@ playwright-report/
 
 # Docs (not needed at runtime)
 *.md
-!excalidraw-mcp/src/**
+docs/
 
 # Lock files not needed (we keep package-lock.json)
 **/bun.lock
 **/pnpm-lock.yaml
 
-# Misc
-scripts/
+# Worktrees
+.worktrees/

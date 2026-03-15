@@ -12,7 +12,7 @@ export default defineConfig({
     cssMinify: !isDevelopment,
     minify: !isDevelopment,
 
-    rollupOptions: {
+    rolldownOptions: {
       input: path.resolve(__dirname, "src/mcp-app.html"),
       external: [
         "react",

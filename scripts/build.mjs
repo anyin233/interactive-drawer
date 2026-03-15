@@ -20,11 +20,9 @@ function run(cmd, env = {}) {
 // - Native/binary packages, or packages with dynamic requires
 // - Large packages that are dynamically imported
 const externalPkgs = [
-  "@modelcontextprotocol/sdk", // MCP core SDK
   "cors",                      // Express middleware
   "express",                   // HTTP framework
   "jsdom",                     // Dynamic import in svg-renderer.ts, native
-  "zod",                       // Schema validation
   "@upstash/redis",            // Optional, dynamic import
 ];
 

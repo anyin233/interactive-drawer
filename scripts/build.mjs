@@ -19,10 +19,10 @@ function run(cmd, env = {}) {
 rmSync(join(root, "dist"), { recursive: true, force: true });
 
 // 1. Type-check
-run("tsc --noEmit");
+run("npx tsc --noEmit");
 
 // 2. Vite build (singlefile mcp-app.html)
-run("vite build");
+run("npx vite build");
 
 // 3. Move the HTML output to dist root (cross-platform)
 renameSync(
@@ -32,7 +32,7 @@ renameSync(
 rmSync(join(root, "dist", "src"), { recursive: true, force: true });
 
 // 4. Build server type declarations
-run("tsc -p tsconfig.server.json");
+run("npx tsc -p tsconfig.server.json");
 
 // 5. Bundle server + entry with esbuild
 run("npx esbuild src/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js");

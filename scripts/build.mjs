@@ -20,8 +20,6 @@ function run(cmd, env = {}) {
 // - Native/binary packages, or packages with dynamic requires
 // - Large packages that are dynamically imported
 const externalPkgs = [
-  "cors",                      // Express middleware
-  "express",                   // HTTP framework
   "jsdom",                     // Dynamic import in svg-renderer.ts, native
   "@upstash/redis",            // Optional, dynamic import
 ];
@@ -29,6 +27,10 @@ const externalPkgs = [
 // Stub out mermaid (excalidraw imports it but we never use it)
 const aliasFlags = '--alias:@excalidraw/mermaid-to-excalidraw=./src/stubs/mermaid-stub.ts';
 const loaderFlags = '--loader:.css=empty';
+
+// CJS packages (express, cors) use require() for Node built-ins.
+// In ESM output we need a createRequire shim so those calls work.
+const cjsShim = "import{createRequire}from'node:module';const require=createRequire(import.meta.url);";
 
 const externalFlags = externalPkgs.map(p => `--external:${p}`).join(" ");
 
@@ -53,8 +55,9 @@ run("npx tsc -p tsconfig.server.json");
 // 5. Bundle server + entry with esbuild (selective externals)
 // Packages NOT in externalPkgs get bundled in, eliminating runtime deps
 // (e.g. @modelcontextprotocol/ext-apps — avoids 59MB Bun binary transitive deps)
-run(`npx esbuild src/server.ts --bundle --platform=node --format=esm ${externalFlags} ${aliasFlags} ${loaderFlags} --outfile=dist/server.js`);
-run(`npx esbuild src/main.ts --bundle --platform=node --format=esm ${externalFlags} ${aliasFlags} ${loaderFlags} --outfile=dist/index.js --banner:js="#!/usr/bin/env node"`);
+run(`npx esbuild src/server.ts --bundle --platform=node --format=esm ${externalFlags} ${aliasFlags} ${loaderFlags} --banner:js="${cjsShim}" --outfile=dist/server.js`);
+run(`npx esbuild src/main.ts --bundle --platform=node --format=esm ${externalFlags} ${aliasFlags} ${loaderFlags} --banner:js="#!/usr/bin/env node
+${cjsShim}" --outfile=dist/index.js`);
 
 // 6. Build viewer (if viewer/ exists)
 if (existsSync(join(root, "viewer", "package.json"))) {

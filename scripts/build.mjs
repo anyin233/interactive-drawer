@@ -22,6 +22,7 @@ function run(cmd, env = {}) {
 const externalPkgs = [
   "jsdom",                     // Dynamic import in svg-renderer.ts, native
   "@upstash/redis",            // Optional, dynamic import
+  "@resvg/resvg-js",           // Native .node addon, cannot be bundled
 ];
 
 // Stub out mermaid (excalidraw imports it but we never use it)

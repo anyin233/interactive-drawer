@@ -29,6 +29,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "jsdom": "^28.0.0"
   },
   "optionalDependencies": {
@@ -38,12 +39,6 @@
     "@excalidraw/excalidraw": "^0.18.0",
     "@modelcontextprotocol/ext-apps": "^0.4.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "mcp-handler": "1.0.7",
-    "morphdom": "^2.7.8",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
     "@types/jsdom": "^28.0.0",
@@ -53,8 +48,14 @@
     "@types/supertest": "^6.0.0",
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^9.2.1",
+    "cors": "^2.8.5",
     "cross-env": "^10.1.0",
     "esbuild": "^0.27.0",
+    "express": "^5.1.0",
+    "mcp-handler": "1.0.7",
+    "morphdom": "^2.7.8",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "supertest": "^7.0.0",
     "typescript": "^5.9.3",
     "vite": "^8.0.0",

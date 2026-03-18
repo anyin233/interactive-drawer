@@ -19,19 +19,7 @@ import {
   generateCheckpointId,
   resolveElements,
 } from "./shared.js";
-import { Resvg } from "@resvg/resvg-js";
-import { renderSvg } from "./svg-renderer.js";
-
-/**
- * Convert an SVG string to a PNG buffer using resvg.
- */
-function svgToPng(svgString: string, width?: number): Buffer {
-  const resvg = new Resvg(svgString, {
-    fitTo: width ? { mode: "width" as const, value: width } : { mode: "original" as const },
-  });
-  const rendered = resvg.render();
-  return Buffer.from(rendered.asPng());
-}
+import { renderSvg, renderPng } from "./svg-renderer.js";
 
 /**
  * Helper: get or re-render SVG for a session.
@@ -272,10 +260,10 @@ To remove elements: {"type":"delete","ids":"<id1>,<id2>"}${ratioHint}`,
         };
       }
 
-      const svgString = await getSessionSvg(session, sessionStore, session_key);
       const viewerUrl = `${baseUrl}/view/${session_key}`;
 
-      const pngBuffer = svgToPng(svgString, 1200);
+      // Render PNG using the same Excalidraw pipeline as the viewer's export
+      const pngBuffer = await renderPng(session.elements);
       const pngBase64 = pngBuffer.toString("base64");
 
       return {

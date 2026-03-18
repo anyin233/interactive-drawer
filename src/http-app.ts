@@ -284,6 +284,39 @@ export function createApp(
     res.send(svg);
   });
 
+  /**
+   * GET /api/sessions/:key/png — Current diagram as PNG image.
+   *
+   * Uses the same Excalidraw rendering pipeline as the SVG endpoint
+   * (convertToExcalidrawElements → exportToSvg), then converts to PNG
+   * via resvg. This matches the viewer's export logic as closely as
+   * possible in a server-side environment.
+   */
+  app.get("/api/sessions/:key/png", async (req: Request, res: Response) => {
+    const key = getKey(req, res);
+    if (!key) return;
+    const session = sessionStore.getSession(key);
+    if (!session) {
+      res.status(404).json({ error: "Session not found or expired" });
+      return;
+    }
+    if (session.elements.length === 0) {
+      res.status(404).json({ error: "Session has no diagram yet" });
+      return;
+    }
+
+    try {
+      const { renderPng } = await import("./svg-renderer.js");
+      const pngBuffer = await renderPng(session.elements);
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Content-Disposition", `inline; filename="diagram-${key}.png"`);
+      res.send(pngBuffer);
+    } catch (err) {
+      console.error("PNG rendering error:", err);
+      res.status(500).json({ error: "PNG rendering failed" });
+    }
+  });
+
   // ============================================================
   // Landing page (always available in web mode)
   // ============================================================

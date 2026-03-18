@@ -10,9 +10,11 @@
  * - Font inlining is skipped server-side (skipInliningFonts: true).
  * - If JSDOM + exportToSvg fails, falls back to a minimal placeholder SVG.
  */
+import { Resvg } from "@resvg/resvg-js";
 import { PSEUDO_TYPES } from "./shared.js";
 
 const EXPORT_PADDING = 20;
+const PNG_DEFAULT_WIDTH = 1200;
 
 /** Lazy-loaded JSDOM + Excalidraw modules. */
 let initialized = false;
@@ -185,6 +187,26 @@ export async function renderSvg(elements: any[]): Promise<string> {
     console.error("exportToSvg failed, using fallback:", err);
     return generateFallbackSvg(realElements, viewport);
   }
+}
+
+/**
+ * Render resolved Excalidraw elements to a PNG buffer.
+ *
+ * Uses the same Excalidraw pipeline as renderSvg (convertToExcalidrawElements
+ * → exportToSvg), then converts the SVG to PNG via resvg. This matches the
+ * viewer's export logic as closely as possible in a server-side environment.
+ *
+ * @param elements - Resolved elements array (may include pseudo-elements).
+ * @param width - Output PNG width in pixels (default 1200).
+ * @returns PNG buffer.
+ */
+export async function renderPng(elements: any[], width?: number): Promise<Buffer> {
+  const svgString = await renderSvg(elements);
+  const resvg = new Resvg(svgString, {
+    fitTo: { mode: "width" as const, value: width ?? PNG_DEFAULT_WIDTH },
+  });
+  const rendered = resvg.render();
+  return Buffer.from(rendered.asPng());
 }
 
 /**
